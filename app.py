@@ -76,7 +76,7 @@ def compute_metrics(data, tickers):
             vol_latest = vol.iloc[-1] if not vol.empty else np.nan
             vol_spike = (vol_latest / vol_avg20) if (vol_avg20 and not np.isnan(vol_avg20)) else np.nan
 
-            # Fundamentals / Demographics
+            # Fundamentals
             t = yf.Ticker(tk)
             info = t.info
             week52_high = info.get("fiftyTwoWeekHigh")
@@ -84,8 +84,16 @@ def compute_metrics(data, tickers):
             market_cap = info.get("marketCap")
             pe_ratio = info.get("trailingPE")
             div_yield = info.get("dividendYield")
-            sector = info.get("sector")
-            industry = info.get("industry")
+
+            # -------------------------
+            # Verdict Logic
+            # -------------------------
+            verdict = "HOLD"
+            if not np.isnan(rsi14) and not np.isnan(sma20):
+                if (cur_price > sma20) and (30 <= rsi14 <= 60) and (vol_spike and vol_spike > 1.5):
+                    verdict = "BUY"
+                elif (rsi14 > 70) or (cur_price < sma20) or (pct_change < -2):
+                    verdict = "SELL"
 
             results.append({
                 "ticker": tk,
@@ -103,10 +111,9 @@ def compute_metrics(data, tickers):
                 "market_cap": market_cap,
                 "PE_ratio": pe_ratio,
                 "div_yield": div_yield,
-                "sector": sector,
-                "industry": industry
+                "verdict": verdict
             })
-        except Exception as e:
+        except Exception:
             continue
 
     return pd.DataFrame(results)
@@ -169,4 +176,5 @@ if refresh:
 
 st.markdown("---")
 st.caption("Notes: data fetched from Yahoo Finance (yfinance). For production-grade real-time data use a paid market-data API or NSE-provided feeds.")
+
 
