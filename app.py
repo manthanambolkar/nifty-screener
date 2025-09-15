@@ -61,33 +61,56 @@ def compute_metrics(data, tickers):
             vol = data['Volume'][tk].dropna()
             if close.empty:
                 continue
+
             cur_price = close.iloc[-1]
             prev_price = close.iloc[-2] if len(close) > 1 else cur_price
-            pct_change = (cur_price - prev_price) / prev_price * 100 if prev_price!=0 else 0
-            sma20 = close.rolling(window=20).mean().iloc[-1] if len(close)>=20 else np.nan
-            sma50 = close.rolling(window=50).mean().iloc[-1] if len(close)>=50 else np.nan
+            pct_change = (cur_price - prev_price) / prev_price * 100 if prev_price != 0 else 0
+
+            # Technical indicators
+            sma20 = close.rolling(window=20).mean().iloc[-1] if len(close) >= 20 else np.nan
+            sma50 = close.rolling(window=50).mean().iloc[-1] if len(close) >= 50 else np.nan
             ema20 = close.ewm(span=20, adjust=False).mean().iloc[-1]
-            rsi14 = rsi(close, 14).iloc[-1] if len(close)>=15 else np.nan
-            vol_avg20 = vol.rolling(window=20).mean().iloc[-1] if len(vol)>=20 else np.nan
+            rsi14 = rsi(close, 14).iloc[-1] if len(close) >= 15 else np.nan
+
+            vol_avg20 = vol.rolling(window=20).mean().iloc[-1] if len(vol) >= 20 else np.nan
             vol_latest = vol.iloc[-1] if not vol.empty else np.nan
             vol_spike = (vol_latest / vol_avg20) if (vol_avg20 and not np.isnan(vol_avg20)) else np.nan
 
+            # Fundamentals / Demographics
+            t = yf.Ticker(tk)
+            info = t.info
+            week52_high = info.get("fiftyTwoWeekHigh")
+            week52_low = info.get("fiftyTwoWeekLow")
+            market_cap = info.get("marketCap")
+            pe_ratio = info.get("trailingPE")
+            div_yield = info.get("dividendYield")
+            sector = info.get("sector")
+            industry = info.get("industry")
+
             results.append({
                 "ticker": tk,
-                "price": round(float(cur_price),2),
-                "pct_change_1d": round(float(pct_change),2),
-                "sma20": round(float(sma20),2) if not np.isnan(sma20) else np.nan,
-                "sma50": round(float(sma50),2) if not np.isnan(sma50) else np.nan,
-                "ema20": round(float(ema20),2),
-                "rsi14": round(float(rsi14),2) if not np.isnan(rsi14) else np.nan,
+                "price": round(float(cur_price), 2),
+                "pct_change_1d": round(float(pct_change), 2),
+                "sma20": round(float(sma20), 2) if not np.isnan(sma20) else np.nan,
+                "sma50": round(float(sma50), 2) if not np.isnan(sma50) else np.nan,
+                "ema20": round(float(ema20), 2),
+                "rsi14": round(float(rsi14), 2) if not np.isnan(rsi14) else np.nan,
                 "vol_latest": int(vol_latest) if not np.isnan(vol_latest) else np.nan,
                 "vol_avg20": int(vol_avg20) if not np.isnan(vol_avg20) else np.nan,
-                "vol_spike": round(float(vol_spike),2) if not np.isnan(vol_spike) else np.nan
+                "vol_spike": round(float(vol_spike), 2) if not np.isnan(vol_spike) else np.nan,
+                "52w_high": week52_high,
+                "52w_low": week52_low,
+                "market_cap": market_cap,
+                "PE_ratio": pe_ratio,
+                "div_yield": div_yield,
+                "sector": sector,
+                "industry": industry
             })
         except Exception as e:
-            # skip tickers failing
             continue
+
     return pd.DataFrame(results)
+
 
 # UI
 st.title("📈 NIFTY Live Stock Screener")
@@ -146,3 +169,4 @@ if refresh:
 
 st.markdown("---")
 st.caption("Notes: data fetched from Yahoo Finance (yfinance). For production-grade real-time data use a paid market-data API or NSE-provided feeds.")
+
